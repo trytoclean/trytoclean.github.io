@@ -122,6 +122,50 @@
 
 
   
+    <article id="post-sel poll epoll " class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2025/11/04/sel%20poll%20epoll%20/" class="article-date">
+  <time class="dt-published" datetime="2025-11-04T09:10:53.528Z" itemprop="datePublished">2025-11-04</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h3 id="简要记录"><a href="#简要记录" class="headerlink" title="简要记录"></a>简要记录</h3><p>多线程 vs 单线程  多线程有一个上下文切换的问题（过程后面补充)  这里采用单线程</p>
+<p>​	如何请求多个链接，一种方式是暴力的轮训<br>​	首先在操作系统中所有连接都可以当做文件保存在内核（由内核管理，可以是数组）<br>​	通过一个函数一个程序不停地遍历，如果有数据，就处理，没有就跳过。问题是利用率和软件管理…………………………</p>
+<h3 id="select"><a href="#select" class="headerlink" title="select"></a>select</h3> <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">简要概述：</span><br><span class="line">将accept 返回的client_socket 放入数组 fdx</span><br><span class="line">	</span><br><span class="line">引入rdx(bitmap default1024, have max),有事件置为1 反之0</span><br><span class="line">拷贝到内核，由内核处理（任然是轮训）</span><br><span class="line">select(max+1,&amp;rset,NULL,NULL,NULL)</span><br><span class="line">	解释: 数组大小,读fd，写，异常，超时时间</span><br><span class="line">		数组大小：accept返回fd值，找到最大的，然后加1。其他内容目前没有在manual中发现</span><br><span class="line">将结果返回rdx</span><br><span class="line">再次轮询，处理置为一的数组</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>*细节：这个bitmaps不能重用，需要在第二次使用前重新置为0<br>			select不处理那个存client_socket的数组<br><strong>问题</strong>：</p>
+<ul>
+<li>bitmap 不能重用</li>
+<li>bitmap 可以改，但仍有有上限</li>
+<li>有内核态与用户态的切换成本</li>
+<li>O（n)的遍历</li>
+</ul>
+<h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">引入结构体pollfd结构体&#123;int fd; short events; short revents;&#125;</span><br><span class="line">	解释说明：fd就是client_socket event就是事件类型，有：POLLIN POLLOUT </span><br><span class="line">存储fd不变</span><br><span class="line">poll(fds_array,fd_number,timeout)</span><br><span class="line">仍然是交给用户态轮询，改的是 revent</span><br><span class="line">其他的不变</span><br></pre></td></tr></table></figure>
+
+<p>解决了上述 bitmap不可复用和上限问题</p>
+<h3 id="epoll"><a href="#epoll" class="headerlink" title="epoll"></a>epoll</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">一些API：EPOLL_CREATE 创建“白板” 记录 fd-event</span><br><span class="line">				API有待补充</span><br><span class="line">				EPOLL_WAIT 相当于poll那个处理的函数，</span><br><span class="line">change：用于管理fd的那个数组变成了一种用户态和内核态的共享区，由此减小了上下文切换的开销。</span><br><span class="line">epoll对fd的处理是：如有事件放到第一个再返回，这样事件复杂度是O(1) （其实是O（k)为了便于理解，再次注释）</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://example.com/2025/11/04/sel%20poll%20epoll%20/" data-id="cuidZO8GZ1B9oPprtOEMqSSnt" data-title="" class="article-share-link"><span class="fa fa-share">Share</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
     <article id="post-ComputerNetwork" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2025/02/23/ComputerNetwork/" class="article-date">
@@ -1142,6 +1186,10 @@
         
           <li>
             <a href="/2025/11/07/hello-world/">Hello World</a>
+          </li>
+        
+          <li>
+            <a href="/2025/11/04/sel%20poll%20epoll%20/">(no title)</a>
           </li>
         
           <li>
